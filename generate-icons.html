@@ -3,53 +3,245 @@
 
 <head>
     <title>Generate PWA Icons</title>
+    <style>
+        body {
+            text-align: center;
+            padding: 40px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        p {
+            color: #aaa;
+            margin-bottom: 24px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 14px 28px;
+            font-size: 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-regular {
+            background: linear-gradient(135deg, #6366F1, #8B5CF6);
+            color: white;
+        }
+
+        .btn-maskable {
+            background: linear-gradient(135deg, #22C55E, #16A34A);
+            color: white;
+        }
+
+        .btn-all {
+            background: linear-gradient(135deg, #F59E0B, #EF4444);
+            color: white;
+            font-size: 17px;
+            padding: 16px 40px;
+        }
+
+        #preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin: 24px 0;
+        }
+
+        .preview-card {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .preview-card img {
+            border-radius: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-card .label {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #8B5CF6;
+            font-weight: 600;
+        }
+
+        .status {
+            margin-top: 16px;
+            padding: 12px 20px;
+            background: #16213e;
+            border-radius: 12px;
+            display: inline-block;
+            font-size: 14px;
+        }
+
+        .status.success {
+            color: #22C55E;
+        }
+
+        .info {
+            margin-top: 24px;
+            padding: 16px;
+            background: #16213e;
+            border-radius: 12px;
+            text-align: left;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.8;
+        }
+
+        .info strong {
+            color: #8B5CF6;
+        }
+    </style>
 </head>
 
-<body style="text-align:center;padding:40px;font-family:Arial;">
-    <h2>PWA Icon Generator</h2>
-    <p>Click buttons to download PNG icons:</p>
+<body>
+    <h2>🧘 PWA Icon Generator</h2>
+    <p>Generate all required PNG icons from icon.svg for mobile app installation</p>
+
     <canvas id="c" style="display:none;"></canvas>
-    <div id="preview" style="margin:20px;"></div>
-    <br>
-    <button onclick="generate(192)" style="padding:12px 24px;font-size:16px;margin:8px;">Download 192x192</button>
-    <button onclick="generate(512)" style="padding:12px 24px;font-size:16px;margin:8px;">Download 512x512</button>
+    <canvas id="cMask" style="display:none;"></canvas>
+
+    <div id="preview"></div>
+
+    <div class="btn-group">
+        <button class="btn-regular" onclick="generate(192, false)">📱 192×192</button>
+        <button class="btn-regular" onclick="generate(512, false)">📱 512×512</button>
+        <button class="btn-maskable" onclick="generate(192, true)">🎭 Maskable 192</button>
+        <button class="btn-maskable" onclick="generate(512, true)">🎭 Maskable 512</button>
+    </div>
+
+    <button class="btn-all" onclick="generateAll()">⬇️ Download All Icons</button>
+
+    <div id="status"></div>
+
+    <div class="info">
+        <strong>📋 Instructions:</strong><br>
+        1. Click "Download All Icons" button<br>
+        2. 4 PNG files will download automatically<br>
+        3. Move all downloaded PNGs to your project folder (same folder as icon.svg)<br>
+        4. Deploy to Netlify<br>
+        5. Open app on phone → "Add to Home Screen" → New logo will appear!<br><br>
+        <strong>📁 Files generated:</strong><br>
+        • <code>icon-192.png</code> — Regular icon (192×192)<br>
+        • <code>icon-512.png</code> — Regular icon (512×512)<br>
+        • <code>icon-maskable-192.png</code> — Maskable icon with padding (192×192)<br>
+        • <code>icon-maskable-512.png</code> — Maskable icon with padding (512×512)
+    </div>
+
     <script>
-        function generate(size) {
-            const canvas = document.getElementById('c');
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            img.onload = function () {
-                ctx.clearRect(0, 0, size, size);
-                ctx.drawImage(img, 0, 0, size, size);
-                const link = document.createElement('a');
-                link.download = 'icon-' + size + '.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                // Also show preview
-                const preview = document.getElementById('preview');
-                const previewImg = document.createElement('img');
-                previewImg.src = canvas.toDataURL('image/png');
-                previewImg.style.width = '128px';
-                previewImg.style.margin = '8px';
-                previewImg.style.borderRadius = '24px';
-                previewImg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-                preview.appendChild(previewImg);
-            };
-            img.src = 'icon.svg';
+        function generate(size, maskable) {
+            return new Promise((resolve) => {
+                const canvas = document.getElementById(maskable ? 'cMask' : 'c');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = function () {
+                    ctx.clearRect(0, 0, size, size);
+
+                    if (maskable) {
+                        // Maskable icons need 10% padding (safe zone)
+                        // Fill background with the gradient color
+                        const gradient = ctx.createLinearGradient(0, 0, size, size);
+                        gradient.addColorStop(0, '#6366F1');
+                        gradient.addColorStop(0.5, '#8B5CF6');
+                        gradient.addColorStop(1, '#A855F7');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, size, size);
+
+                        // Draw icon with 10% padding on each side (80% of size)
+                        const padding = size * 0.1;
+                        const innerSize = size * 0.8;
+                        ctx.drawImage(img, padding, padding, innerSize, innerSize);
+                    } else {
+                        ctx.drawImage(img, 0, 0, size, size);
+                    }
+
+                    const link = document.createElement('a');
+                    const prefix = maskable ? 'icon-maskable-' : 'icon-';
+                    link.download = prefix + size + '.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+
+                    // Show preview
+                    const preview = document.getElementById('preview');
+                    const card = document.createElement('div');
+                    card.className = 'preview-card';
+                    const previewImg = document.createElement('img');
+                    previewImg.src = canvas.toDataURL('image/png');
+                    previewImg.style.width = '96px';
+                    card.appendChild(previewImg);
+                    const label = document.createElement('div');
+                    label.className = 'label';
+                    label.textContent = (maskable ? 'Maskable ' : '') + size + '×' + size;
+                    card.appendChild(label);
+                    preview.appendChild(card);
+
+                    resolve();
+                };
+                img.src = 'icon.svg';
+            });
         }
-        // Auto-preview
+
+        async function generateAll() {
+            document.getElementById('preview').innerHTML = '';
+            document.getElementById('status').innerHTML = '<div class="status">⏳ Generating icons...</div>';
+
+            await generate(192, false);
+            await new Promise(r => setTimeout(r, 500));
+            await generate(512, false);
+            await new Promise(r => setTimeout(r, 500));
+            await generate(192, true);
+            await new Promise(r => setTimeout(r, 500));
+            await generate(512, true);
+
+            document.getElementById('status').innerHTML = '<div class="status success">✅ All 4 icons downloaded! Move them to your project folder.</div>';
+        }
+
+        // Auto-preview on load
         window.onload = function () {
             const img = new Image();
             img.onload = function () {
                 const preview = document.getElementById('preview');
+                const card = document.createElement('div');
+                card.className = 'preview-card';
                 const previewImg = document.createElement('img');
                 previewImg.src = 'icon.svg';
                 previewImg.style.width = '128px';
-                previewImg.style.borderRadius = '24px';
-                previewImg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
-                preview.appendChild(previewImg);
+                card.appendChild(previewImg);
+                const label = document.createElement('div');
+                label.className = 'label';
+                label.textContent = 'Current SVG Icon';
+                card.appendChild(label);
+                preview.appendChild(card);
             };
             img.src = 'icon.svg';
         };

@@ -1040,13 +1040,21 @@
                             // Submit form (CORS-free POST via iframe)
                             form.submit();
 
-                            // After delay, fetch the photo URL via JSONP
-                            setTimeout(() => {
-                                // Clean up form and iframe
-                                if (form.parentNode) form.parentNode.removeChild(form);
-                                if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                            // Poll for photo URL via JSONP (start after 3s, retry every 3s, max 3 tries)
+                            const savedDate = Store.currentDate;
+                            const savedBatch = batchConfig.name;
+                            const savedBatchKey = Store.currentBatch;
+                            let pollAttempt = 0;
 
-                                // Retrieve photo URL via JSONP GET
+                            const pollPhotoUrl = () => {
+                                pollAttempt++;
+                                if (pollAttempt > 3) {
+                                    // Clean up form and iframe
+                                    if (form.parentNode) form.parentNode.removeChild(form);
+                                    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                                    return;
+                                }
+
                                 const urlCbName = '_photoUrlCb_' + Date.now();
                                 const urlScript = document.createElement('script');
 
@@ -1055,30 +1063,33 @@
                                     if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
 
                                     if (resp && resp.photoUrl) {
-                                        const photoKey = `${Store.currentDate}|${Store.currentBatch}`;
+                                        const photoKey = `${savedDate}|${savedBatchKey}`;
                                         Store.photoUrls.set(photoKey, resp.photoUrl);
                                         StorageManager.saveState();
-                                        UI.showToast('📷 Photo proof uploaded ✓', 'success');
-                                        console.log('Photo URL saved:', resp.photoUrl);
+                                        UI.showToast('Photo proof uploaded ✓', 'success');
+                                        // Clean up
+                                        if (form.parentNode) form.parentNode.removeChild(form);
+                                        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                                    } else {
+                                        // Retry after 3 seconds
+                                        setTimeout(pollPhotoUrl, 3000);
                                     }
                                 };
 
                                 urlScript.onerror = () => {
                                     delete window[urlCbName];
                                     if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
+                                    setTimeout(pollPhotoUrl, 3000);
                                 };
 
-                                // Timeout cleanup
-                                setTimeout(() => {
-                                    if (window[urlCbName]) {
-                                        delete window[urlCbName];
-                                        if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
-                                    }
-                                }, 15000);
+                                setTimeout(() => { if (window[urlCbName]) { delete window[urlCbName]; if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript); } }, 10000);
 
-                                urlScript.src = `${CONFIG.API_URL}?action=getPhotoUrl&date=${encodeURIComponent(Store.currentDate)}&batch=${encodeURIComponent(batchConfig.name)}&callback=${urlCbName}`;
+                                urlScript.src = `${CONFIG.API_URL}?action=getPhotoUrl&date=${encodeURIComponent(savedDate)}&batch=${encodeURIComponent(savedBatch)}&callback=${urlCbName}`;
                                 document.body.appendChild(urlScript);
-                            }, 8000); // Wait 8 seconds for photo upload to complete
+                            };
+
+                            // Start polling after 3 seconds
+                            setTimeout(pollPhotoUrl, 3000);
 
                         } catch (photoErr) {
                             console.log('Photo upload error:', photoErr.message);
@@ -1260,6 +1271,30 @@
             if (!batch1Data && !batch2Data) {
                 UI.showToast('No attendance data for today', 'error');
                 return;
+            }
+
+            // Fetch photo URLs on-demand if not already available
+            if (CONFIG.API_URL) {
+                const fetchBatchPhotoUrl = (batchName, batchKey) => {
+                    const photoKey = `${dateKey}|${batchKey}`;
+                    if (Store.photoUrls.get(photoKey)) return; // Already have it
+                    const cbName = '_mergePhotoCb_' + batchKey + '_' + Date.now();
+                    const script = document.createElement('script');
+                    window[cbName] = (resp) => {
+                        delete window[cbName];
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                        if (resp && resp.photoUrl) {
+                            Store.photoUrls.set(photoKey, resp.photoUrl);
+                            StorageManager.saveState();
+                        }
+                    };
+                    script.onerror = () => { delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); };
+                    setTimeout(() => { if (window[cbName]) { delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); } }, 10000);
+                    script.src = `${CONFIG.API_URL}?action=getPhotoUrl&date=${encodeURIComponent(dateKey)}&batch=${encodeURIComponent(batchName)}&callback=${cbName}`;
+                    document.body.appendChild(script);
+                };
+                fetchBatchPhotoUrl('Batch 01', 'batch_01');
+                fetchBatchPhotoUrl('Batch 02', 'batch_02');
             }
 
             dom.mergeTitle.textContent = `Merged — ${Utils.formatDateDisplay(Store.currentDate)}`;

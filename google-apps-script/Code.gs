@@ -467,11 +467,12 @@ function uploadPhotoAndUpdateSheet(date, batch, photoBase64) {
     var sheet = getAttendanceSheet();
     var data = sheet.getDataRange().getValues();
     var updated = 0;
+    var targetDate = normalizeDate(date);
 
     for (var i = 1; i < data.length; i++) {
-      var rowDate = data[i][0].toString();
-      var rowBatch = data[i][1].toString();
-      if (rowDate === date && rowBatch === batch) {
+      var rowDate = normalizeDate(data[i][0]);
+      var rowBatch = data[i][1] ? data[i][1].toString().trim() : '';
+      if (rowDate === targetDate && rowBatch.indexOf(batch) !== -1) {
         sheet.getRange(i + 1, 8).setValue(photoUrl);  // Column 8 = Photo_URL
         updated++;
       }
@@ -495,10 +496,13 @@ function getPhotoUrlForBatch(date, batch) {
 
   var sheet = getAttendanceSheet();
   var data = sheet.getDataRange().getValues();
+  var targetDate = normalizeDate(date);
 
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0].toString() === date && data[i][1].toString() === batch) {
-      var url = data[i][7] ? data[i][7].toString() : '';
+    var rowDate = normalizeDate(data[i][0]);
+    var rowBatch = data[i][1] ? data[i][1].toString().trim() : '';
+    if (rowDate === targetDate && rowBatch.indexOf(batch) !== -1) {
+      var url = data[i][7] ? data[i][7].toString().trim() : '';
       if (url) {
         return { success: true, photoUrl: url };
       }
@@ -506,6 +510,24 @@ function getPhotoUrlForBatch(date, batch) {
   }
 
   return { success: true, photoUrl: '' };
+}
+
+// Normalize any date value to 'yyyy-mm-dd' string
+function normalizeDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    var y = val.getFullYear();
+    var m = ('0' + (val.getMonth() + 1)).slice(-2);
+    var d = ('0' + val.getDate()).slice(-2);
+    return y + '-' + m + '-' + d;
+  }
+  var s = val.toString().trim();
+  // Try to extract yyyy-mm-dd pattern
+  var match = s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (match) {
+    return match[1] + '-' + ('0' + match[2]).slice(-2) + '-' + ('0' + match[3]).slice(-2);
+  }
+  return s;
 }
 
 // ======= Helpers =======

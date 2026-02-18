@@ -5,7 +5,7 @@
 const CONFIG = {
   // === Google Apps Script Web App URL ===
   // After deploying your Apps Script, paste the URL here
-  API_URL: 'https://script.google.com/macros/s/AKfycbzEGvhG8ywJHhyP_NHesBaStWeijnGbEMuXXXouQeYRFi1DcdtpU4BP8r_S1xiVr1bN/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxdtc7wOwGPBrFDs89CDZI-3wVAN1BqYkkTNxYrQW60oU9nW0HF9UUX8Bqvu82p0bkK/exec',
 
   // === Google Sheet Details ===
   // Source sheet (student list)

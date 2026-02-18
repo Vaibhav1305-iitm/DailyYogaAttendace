@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Generate PWA Icons</title>
+</head>
+
+<body style="text-align:center;padding:40px;font-family:Arial;">
+    <h2>PWA Icon Generator</h2>
+    <p>Click buttons to download PNG icons:</p>
+    <canvas id="c" style="display:none;"></canvas>
+    <div id="preview" style="margin:20px;"></div>
+    <br>
+    <button onclick="generate(192)" style="padding:12px 24px;font-size:16px;margin:8px;">Download 192x192</button>
+    <button onclick="generate(512)" style="padding:12px 24px;font-size:16px;margin:8px;">Download 512x512</button>
+    <script>
+        function generate(size) {
+            const canvas = document.getElementById('c');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = function () {
+                ctx.clearRect(0, 0, size, size);
+                ctx.drawImage(img, 0, 0, size, size);
+                const link = document.createElement('a');
+                link.download = 'icon-' + size + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                // Also show preview
+                const preview = document.getElementById('preview');
+                const previewImg = document.createElement('img');
+                previewImg.src = canvas.toDataURL('image/png');
+                previewImg.style.width = '128px';
+                previewImg.style.margin = '8px';
+                previewImg.style.borderRadius = '24px';
+                previewImg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                preview.appendChild(previewImg);
+            };
+            img.src = 'icon.svg';
+        }
+        // Auto-preview
+        window.onload = function () {
+            const img = new Image();
+            img.onload = function () {
+                const preview = document.getElementById('preview');
+                const previewImg = document.createElement('img');
+                previewImg.src = 'icon.svg';
+                previewImg.style.width = '128px';
+                previewImg.style.borderRadius = '24px';
+                previewImg.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                preview.appendChild(previewImg);
+            };
+            img.src = 'icon.svg';
+        };
+    </script>
+</body>
+
+</html>

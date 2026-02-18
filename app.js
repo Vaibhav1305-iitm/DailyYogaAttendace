@@ -1293,17 +1293,20 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
 
-                // Add Photo Links sheet
+                // Add Photo Links sheet with HYPERLINK formula (works in SheetJS community edition)
                 const photoData = [];
                 if (b1PhotoUrl) photoData.push({ 'Batch': 'Batch 01 (5:30 AM)', 'Photo Proof Link': b1PhotoUrl });
                 if (b2PhotoUrl) photoData.push({ 'Batch': 'Batch 02 (6:00 AM)', 'Photo Proof Link': b2PhotoUrl });
                 if (photoData.length > 0) {
                     const psWs = XLSX.utils.json_to_sheet(photoData);
                     psWs['!cols'] = [{ wch: 22 }, { wch: 60 }];
-                    // Add hyperlink formatting
-                    photoData.forEach((_, i) => {
-                        const cell = psWs[XLSX.utils.encode_cell({ r: i + 1, c: 1 })];
-                        if (cell) cell.l = { Target: cell.v, Tooltip: 'Click to view photo proof' };
+                    // Use HYPERLINK formula for clickable links (community edition compatible)
+                    photoData.forEach((row, i) => {
+                        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 1 });
+                        const url = row['Photo Proof Link'];
+                        if (url) {
+                            psWs[cellRef] = { t: 's', f: 'HYPERLINK("' + url + '","\ud83d\udcf7 Click to view photo proof")' };
+                        }
                     });
                     XLSX.utils.book_append_sheet(wb, psWs, 'Photo Proofs');
                 }
@@ -1370,18 +1373,24 @@
                 const data = this.getMergedExportData();
                 const tableData = data.map(row => [row['Sr. No.'], row['Student Name'], row['App Number'], row['Batch 1 (5:30 AM)'], row['Batch 2 (6:00 AM)'], row['Final Status']]);
 
+                // A4 landscape = 297mm wide, margins 14mm each side → 269mm usable
                 doc.autoTable({
                     startY: photoY + 4,
                     head: [['#', 'Student Name', 'App Number', 'Batch 1 (5:30)', 'Batch 2 (6:00)', 'Final Status']],
                     body: tableData,
                     theme: 'grid',
-                    styles: { fontSize: 8, cellPadding: 3 },
-                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+                    tableWidth: 'auto',
+                    margin: { left: 14, right: 14 },
+                    styles: { fontSize: 9, cellPadding: 4 },
+                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 10 },
                     alternateRowStyles: { fillColor: [248, 250, 252] },
                     columnStyles: {
-                        0: { halign: 'center', cellWidth: 10 }, 1: { cellWidth: 55 }, 2: { cellWidth: 30 },
-                        3: { halign: 'center', cellWidth: 25 }, 4: { halign: 'center', cellWidth: 25 },
-                        5: { halign: 'center', cellWidth: 25, fontStyle: 'bold' }
+                        0: { halign: 'center', cellWidth: 15 },
+                        1: { cellWidth: 80 },
+                        2: { cellWidth: 45 },
+                        3: { halign: 'center', cellWidth: 43 },
+                        4: { halign: 'center', cellWidth: 43 },
+                        5: { halign: 'center', cellWidth: 43, fontStyle: 'bold' }
                     }
                 });
 

@@ -4,35 +4,31 @@
       <stop offset="0%" stop-color="#4F46E5"/>
       <stop offset="100%" stop-color="#7C3AED"/>
     </linearGradient>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
   </defs>
-  
-  <!-- Background with rounded corners -->
-  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
-  
-  <!-- Subtle top glow -->
-  <rect width="512" height="256" rx="96" ry="96" fill="url(#glow)"/>
-  
-  <!-- Yoga person in lotus pose (centered) -->
-  <g transform="translate(256, 220)" fill="white">
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" ry="108" fill="url(#bg)"/>
+
+  <!-- Yoga person silhouette (simplified for clarity at small sizes) -->
+  <g transform="translate(256, 200)" fill="white" stroke="white">
     <!-- Head -->
-    <circle cx="0" cy="-65" r="22"/>
+    <circle cx="0" cy="-55" r="28" stroke="none"/>
     <!-- Body -->
-    <path d="M0,-40 Q0,10 0,30" stroke="white" stroke-width="12" fill="none" stroke-linecap="round"/>
-    <!-- Arms reaching up in namaste -->
-    <path d="M0,-30 Q-40,-60 -35,-85 M0,-30 Q40,-60 35,-85" stroke="white" stroke-width="10" fill="none" stroke-linecap="round"/>
-    <!-- Legs in lotus -->
-    <path d="M0,30 Q-50,20 -65,45 Q-40,55 -15,40 M0,30 Q50,20 65,45 Q40,55 15,40" stroke="white" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <rect x="-8" y="-25" width="16" height="70" rx="8" stroke="none"/>
+    <!-- Arms raised in V -->
+    <line x1="-8" y1="-15" x2="-55" y2="-75" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <line x1="8" y1="-15" x2="55" y2="-75" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <!-- Legs crossed lotus -->
+    <line x1="-4" y1="40" x2="-55" y2="55" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <line x1="4" y1="40" x2="55" y2="55" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <line x1="-55" y1="55" x2="-20" y2="35" stroke-width="14" stroke-linecap="round" fill="none"/>
+    <line x1="55" y1="55" x2="20" y2="35" stroke-width="14" stroke-linecap="round" fill="none"/>
   </g>
-  
-  <!-- Checkmark badge (bottom right) -->
-  <circle cx="370" cy="370" r="48" fill="#22C55E"/>
-  <circle cx="370" cy="370" r="44" fill="none" stroke="white" stroke-width="3" opacity="0.3"/>
-  <polyline points="348,370 363,385 392,356" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  
-  <!-- "YA" text at bottom -->
-  <text x="256" y="420" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="bold" fill="white" opacity="0.9" letter-spacing="8">YOGA</text>
+
+  <!-- Green checkmark badge -->
+  <circle cx="380" cy="380" r="55" fill="#22C55E"/>
+  <polyline points="355,380 372,397 405,364" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- YOGA text -->
+  <text x="256" y="430" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="56" font-weight="bold" fill="white" opacity="0.95" letter-spacing="6">YOGA</text>
 </svg>

@@ -604,9 +604,10 @@
                 }, 15000);
 
                 // Use Google Visualization API JSONP — reads Attendance sheet directly
-                // Filter by date using SQL query
+                // Reads from Daily Yoga Attendance spreadsheet
+                const ATTENDANCE_SHEET_ID = '1Vq1cQgW4Cm7-cC3aKglFhRGwBJu6-ZMnKecrL1nVAxs';
                 const tq = encodeURIComponent(`select * where A='${date}'`);
-                script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=Attendance&tq=${tq}`;
+                script.src = `https://docs.google.com/spreadsheets/d/${ATTENDANCE_SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=Attendance&tq=${tq}`;
                 document.body.appendChild(script);
             });
         }
@@ -915,48 +916,82 @@
                 try {
                     UI.showToast('📤 Saving to Google Sheet...', 'info');
 
-                    const payload = JSON.stringify({
-                        action: 'saveAttendance',
-                        data: records,
-                        photo: Store.photoBase64
+                    // Build compact records string: id:status:name:appNum|...
+                    const statusMap = { present: 'p', absent: 'a', leave: 'l' };
+                    const compactRecords = records.map(r => {
+                        const id = encodeURIComponent(r.studentId);
+                        const s = statusMap[r.status] || 'l';
+                        const name = encodeURIComponent(r.studentName);
+                        const app = encodeURIComponent(r.appNumber || '');
+                        return `${id}:${s}:${name}:${app}`;
+                    }).join('|');
+
+                    const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
+
+                    // Use JSONP (script tag) — 100% CORS-proof, same as student loading
+                    const result = await new Promise((resolve, reject) => {
+                        const cbName = '_saveCallback_' + Date.now();
+                        const script = document.createElement('script');
+
+                        const cleanup = () => {
+                            delete window[cbName];
+                            if (script.parentNode) script.parentNode.removeChild(script);
+                        };
+
+                        window[cbName] = (data) => {
+                            cleanup();
+                            resolve(data);
+                        };
+
+                        script.onerror = () => {
+                            cleanup();
+                            reject(new Error('Save request failed'));
+                        };
+
+                        // Timeout after 30 seconds
+                        setTimeout(() => {
+                            if (window[cbName]) {
+                                cleanup();
+                                reject(new Error('Save timeout'));
+                            }
+                        }, 30000);
+
+                        const params = [
+                            `action=saveViaGet`,
+                            `date=${encodeURIComponent(Store.currentDate)}`,
+                            `batch=${encodeURIComponent(batchConfig.name)}`,
+                            `time=${encodeURIComponent(timeStr)}`,
+                            `records=${encodeURIComponent(compactRecords)}`,
+                            `callback=${cbName}`
+                        ].join('&');
+
+                        script.src = `${CONFIG.API_URL}?${params}`;
+                        document.body.appendChild(script);
                     });
 
-                    try {
-                        // Attempt 1: Direct fetch POST (works from https:// origins like Netlify)
-                        const resp = await fetch(CONFIG.API_URL, {
-                            method: 'POST',
-                            body: payload,
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            redirect: 'follow'
-                        });
-                        const result = await resp.json();
-                        if (result.success) {
-                            cloudSaved = true;
-                            photoUrl = result.photoUrl || null;
-                            UI.showToast(`✅ Saved to Google Sheet! (${result.message || 'done'})`, 'success');
-                        } else {
-                            UI.showToast('❌ Sheet error: ' + (result.error || 'Unknown'), 'error');
-                        }
-                    } catch (fetchErr) {
-                        // Attempt 2: CORS blocked reading response — try no-cors (data IS sent)
-                        console.log('Fetch CORS failed, trying no-cors...', fetchErr.message);
-                        await fetch(CONFIG.API_URL, {
-                            method: 'POST',
-                            body: payload,
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            mode: 'no-cors'
-                        });
+                    if (result.success) {
+                        cloudSaved = true;
+                        UI.showToast(`✅ Saved to Google Sheet! (${result.saved || ''} records)`, 'success');
+                    } else {
+                        UI.showToast('❌ Sheet error: ' + (result.error || 'Unknown'), 'error');
+                    }
 
-                        // Wait for Google to process, then verify via GViz API
-                        UI.showToast('📤 Verifying save...', 'info');
-                        await new Promise(r => setTimeout(r, 3000));
-                        const verified = await API.fetchAttendance(Store.currentDate);
-                        if (verified) {
-                            cloudSaved = true;
-                            UI.showToast('✅ Saved & verified from Google Sheet!', 'success');
-                        } else {
-                            UI.showToast('⚠️ Data sent but could not verify. Check sheet manually.', 'error');
-                            cloudSaved = true; // Assume success — no-cors POST was sent
+                    // Try to upload photo separately via no-cors POST (best effort)
+                    if (cloudSaved && Store.photoBase64) {
+                        try {
+                            await fetch(CONFIG.API_URL, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    action: 'uploadPhoto',
+                                    date: Store.currentDate,
+                                    batch: batchConfig.name,
+                                    photo: Store.photoBase64
+                                }),
+                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                mode: 'no-cors'
+                            });
+                        } catch (photoErr) {
+                            console.log('Photo upload skipped (CORS)', photoErr.message);
                         }
                     }
                 } catch (err) {
@@ -1275,24 +1310,44 @@
                 doc.setFont(undefined, 'normal');
                 doc.text(`Date: ${Utils.formatDateDisplay(Store.currentDate)}`, 14, 22);
 
-                // Photo proof links below the title
+                // Photo proof links below the title — styled with border, bold font, and number
                 const dateKey = Store.currentDate;
                 const b1PhotoUrl = Store.photoUrls.get(`${dateKey}|batch_01`) || '';
                 const b2PhotoUrl = Store.photoUrls.get(`${dateKey}|batch_02`) || '';
                 let photoY = 22;
                 if (b1PhotoUrl || b2PhotoUrl) {
-                    photoY += 6;
-                    doc.setFontSize(9);
-                    doc.setTextColor(79, 70, 229);
-                    if (b1PhotoUrl) {
-                        doc.textWithLink('📷 Batch 1 Photo Proof (click to view)', 14, photoY, { url: b1PhotoUrl });
-                        photoY += 5;
-                    }
-                    if (b2PhotoUrl) {
-                        doc.textWithLink('📷 Batch 2 Photo Proof (click to view)', 14, photoY, { url: b2PhotoUrl });
-                        photoY += 5;
-                    }
+                    photoY += 4;
+                    let photoNum = 1;
+
+                    const drawPhotoBox = (label, url) => {
+                        // Draw bordered box
+                        doc.setDrawColor(79, 70, 229);
+                        doc.setLineWidth(0.5);
+                        doc.roundedRect(14, photoY - 4, 120, 8, 1.5, 1.5, 'S');
+
+                        // Number badge (filled circle with number)
+                        doc.setFillColor(79, 70, 229);
+                        doc.circle(19, photoY, 2.5, 'F');
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(255, 255, 255);
+                        doc.text(String(photoNum), 19, photoY + 0.8, { align: 'center' });
+
+                        // Link text
+                        doc.setFontSize(9);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(79, 70, 229);
+                        doc.textWithLink(label + ' - Photo Proof (click to view)', 24, photoY + 0.5, { url });
+
+                        photoNum++;
+                        photoY += 10;
+                    };
+
+                    if (b1PhotoUrl) drawPhotoBox('Batch 1 (5:30 AM)', b1PhotoUrl);
+                    if (b2PhotoUrl) drawPhotoBox('Batch 2 (6:00 AM)', b2PhotoUrl);
+
                     doc.setTextColor(0, 0, 0);
+                    doc.setFont(undefined, 'normal');
                 }
 
                 const data = this.getMergedExportData();
@@ -1472,8 +1527,16 @@
         dom.datePicker.value = Store.currentDate;
         bindEvents();
         API.fetchStudents();
-        // Fetch today's attendance from cloud (multi-device sync)
-        API.fetchAttendance(Store.currentDate);
+
+        // Auto-sync attendance from cloud on load (multi-device support)
+        UI.showToast('☁️ Syncing attendance...', 'info');
+        API.fetchAttendance(Store.currentDate).then(ok => {
+            if (ok) {
+                UI.showToast('✅ Attendance synced from cloud!', 'success');
+            } else {
+                UI.showToast('📋 Ready — no cloud data for today', 'info');
+            }
+        });
     }
 
     if (document.readyState === 'loading') {

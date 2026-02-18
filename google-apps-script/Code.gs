@@ -15,7 +15,8 @@
 //
 // ============================================
 
-const SHEET_ID = '1g8J61vJLWh_sP0by9biJVACR0EGtC8XGlft9mmHLkps';
+const SHEET_ID = '1g8J61vJLWh_sP0by9biJVACR0EGtC8XGlft9mmHLkps';  // Students source
+const ATTENDANCE_SHEET_ID = '1Vq1cQgW4Cm7-cC3aKglFhRGwBJu6-ZMnKecrL1nVAxs';  // Daily Yoga Attendance (save here)
 const STUDENTS_GID = '1897721584';
 const ATTENDANCE_SHEET_NAME = 'Attendance';
 const PHOTO_FOLDER_NAME = 'Yoga_Attendance_Photos';
@@ -43,6 +44,9 @@ function doGet(e) {
         break;
       case 'getMergedData':
         result = getMergedData(e.parameter.date);
+        break;
+      case 'saveViaGet':
+        result = saveAttendanceViaGet(e.parameter);
         break;
       default:
         result = { success: false, error: 'Unknown action' };
@@ -126,6 +130,61 @@ function doPost(e) {
 
 // ======= Student Functions =======
 
+// Save attendance via GET (JSONP-compatible, CORS-proof)
+function saveAttendanceViaGet(params) {
+  const date = params.date;
+  const batch = params.batch;
+  const time = params.time || new Date().toLocaleTimeString('en-US', { hour12: false });
+
+  if (!date || !batch || !params.records) {
+    return { success: false, error: 'Missing date, batch, or records' };
+  }
+
+  const sheet = getAttendanceSheet();
+
+  // Check if already saved (locked)
+  const lockCheck = checkBatchLocked(date, batch);
+  if (lockCheck.locked) {
+    return { success: false, error: 'This batch is already saved and locked.' };
+  }
+
+  // Parse compact records: "id:status:name:appNum|id:status:name:appNum|..."
+  const recordParts = params.records.split('|');
+  const savedAt = new Date().toISOString();
+  const rows = [];
+
+  for (let i = 0; i < recordParts.length; i++) {
+    const parts = recordParts[i].split(':');
+    if (parts.length < 2) continue;
+
+    const studentId = decodeURIComponent(parts[0]);
+    const statusCode = parts[1];
+    const studentName = parts.length > 2 ? decodeURIComponent(parts[2]) : '';
+    const appNumber = parts.length > 3 ? decodeURIComponent(parts[3]) : '';
+
+    // Expand status code: p=present, a=absent, l=leave
+    let status;
+    switch (statusCode) {
+      case 'p': status = 'Present'; break;
+      case 'a': status = 'Absent'; break;
+      default: status = 'Leave';
+    }
+
+    rows.push([date, batch, studentId, studentName, appNumber, status, time, '', savedAt]);
+  }
+
+  if (rows.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, 9).setValues(rows);
+  }
+
+  return {
+    success: true,
+    message: 'Saved ' + rows.length + ' records',
+    saved: rows.length
+  };
+}
+
 function getStudents() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const sheets = ss.getSheets();
@@ -169,7 +228,7 @@ function getStudents() {
 // ======= Attendance Functions =======
 
 function getAttendanceSheet() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ss = SpreadsheetApp.openById(ATTENDANCE_SHEET_ID);  // Use attendance spreadsheet
   let sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
 
   // Create if not exists

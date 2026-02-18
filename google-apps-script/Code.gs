@@ -1,0 +1,375 @@
+// ============================================
+// YOGA ATTENDANCE — Google Apps Script Backend
+// ============================================
+// 
+// SETUP INSTRUCTIONS:
+// 1. Open Google Sheet: https://docs.google.com/spreadsheets/d/1g8J61vJLWh_sP0by9biJVACR0EGtC8XGlft9mmHLkps
+// 2. Go to Extensions → Apps Script
+// 3. Paste this entire file into Code.gs
+// 4. Create an "Attendance" tab in the Sheet with columns:
+//    Date | Batch | Student_ID | Student_Name | App_Number | Status | Time | Photo_URL
+// 5. Deploy → New Deployment → Web App
+//    - Execute as: Me
+//    - Who has access: Anyone
+// 6. Copy the Web App URL and paste it in config.js → API_URL
+//
+// ============================================
+
+const SHEET_ID = '1g8J61vJLWh_sP0by9biJVACR0EGtC8XGlft9mmHLkps';
+const STUDENTS_GID = '1897721584';
+const ATTENDANCE_SHEET_NAME = 'Attendance';
+const PHOTO_FOLDER_NAME = 'Yoga_Attendance_Photos';
+
+// ======= Web App Entry Points =======
+
+function doGet(e) {
+  const action = e.parameter.action;
+  const callback = e.parameter.callback; // JSONP support
+  let result;
+
+  try {
+    switch (action) {
+      case 'getStudents':
+        result = getStudents();
+        break;
+      case 'getAttendance':
+        result = getAttendance(e.parameter.date, e.parameter.batch);
+        break;
+      case 'getAllAttendance':
+        result = getAllAttendance(e.parameter.date);
+        break;
+      case 'checkLock':
+        result = checkBatchLocked(e.parameter.date, e.parameter.batch);
+        break;
+      case 'getMergedData':
+        result = getMergedData(e.parameter.date);
+        break;
+      default:
+        result = { success: false, error: 'Unknown action' };
+    }
+  } catch (err) {
+    result = { success: false, error: err.toString() };
+  }
+
+  const json = JSON.stringify(result);
+
+  // JSONP: wrap in callback for file:// CORS bypass
+  if (callback) {
+    return ContentService
+      .createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return ContentService
+    .createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  let result;
+
+  try {
+    let payload;
+
+    // Form-encoded POST (from hidden form+iframe — bypasses CORS)
+    if (e.parameter && e.parameter.payload) {
+      payload = JSON.parse(e.parameter.payload);
+    }
+    // Standard JSON POST (from fetch)
+    else if (e.postData && e.postData.contents) {
+      payload = JSON.parse(e.postData.contents);
+    }
+
+    if (!payload) {
+      return htmlResponse({ success: false, error: 'No data received' });
+    }
+
+    const action = payload.action;
+
+    switch (action) {
+      case 'saveAttendance':
+        result = saveAttendance(payload.data, payload.photo);
+        break;
+      default:
+        result = { success: false, error: 'Unknown action' };
+    }
+  } catch (err) {
+    result = { success: false, error: err.toString() };
+  }
+
+  // Return as HTML (works with form+iframe submissions)
+  return htmlResponse(result);
+}
+
+// HTML response helper for form+iframe POST
+function htmlResponse(obj) {
+  const html = '<html><body><script>var r=' + JSON.stringify(obj) + ';</script></body></html>';
+  return HtmlService.createHtmlOutput(html);
+}
+
+// ======= Student Functions =======
+
+function getStudents() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheets = ss.getSheets();
+  
+  // Find the students sheet by GID
+  let sheet = null;
+  for (let i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId().toString() === STUDENTS_GID) {
+      sheet = sheets[i];
+      break;
+    }
+  }
+
+  if (!sheet) {
+    return { success: false, error: 'Students sheet not found' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const students = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row[0] && row[0].toString().trim()) {
+      students.push({
+        name: row[0].toString().trim(),
+        appNumber: row[1] ? row[1].toString().trim() : '',
+        id: row[2] ? row[2].toString().trim() : '',
+        active: true
+      });
+    }
+  }
+
+  return {
+    success: true,
+    students: students,
+    count: students.length
+  };
+}
+
+// ======= Attendance Functions =======
+
+function getAttendanceSheet() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName(ATTENDANCE_SHEET_NAME);
+
+  // Create if not exists
+  if (!sheet) {
+    sheet = ss.insertSheet(ATTENDANCE_SHEET_NAME);
+    sheet.appendRow([
+      'Date', 'Batch', 'Student_ID', 'Student_Name', 'App_Number',
+      'Status', 'Time', 'Photo_URL', 'Saved_At'
+    ]);
+    
+    // Format header
+    const headerRange = sheet.getRange(1, 1, 1, 9);
+    headerRange.setFontWeight('bold');
+    headerRange.setBackground('#4F46E5');
+    headerRange.setFontColor('#FFFFFF');
+  }
+
+  return sheet;
+}
+
+function saveAttendance(records, photoBase64) {
+  const sheet = getAttendanceSheet();
+
+  // Check if already saved (locked)
+  if (records.length > 0) {
+    const firstRecord = records[0];
+    const lockCheck = checkBatchLocked(firstRecord.date, firstRecord.batch);
+    if (lockCheck.locked) {
+      return { success: false, error: 'This batch is already saved and locked.' };
+    }
+  }
+
+  // Upload photo to Drive
+  let photoUrl = '';
+  if (photoBase64) {
+    photoUrl = uploadPhoto(photoBase64, records[0].date, records[0].batch);
+  }
+
+  const savedAt = new Date().toISOString();
+
+  // Append all records
+  const rows = records.map(r => [
+    r.date,
+    r.batch,
+    r.studentId,
+    r.studentName,
+    r.appNumber || '',
+    capitalizeFirst(r.status),
+    r.time,
+    photoUrl,
+    savedAt
+  ]);
+
+  if (rows.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rows.length, 9).setValues(rows);
+  }
+
+  return {
+    success: true,
+    message: `Saved ${records.length} records`,
+    photoUrl: photoUrl
+  };
+}
+
+function getAttendance(date, batch) {
+  const sheet = getAttendanceSheet();
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === date && data[i][1].toString() === batch) {
+      records.push({
+        date: data[i][0].toString(),
+        batch: data[i][1].toString(),
+        studentId: data[i][2].toString(),
+        studentName: data[i][3].toString(),
+        status: data[i][5].toString().toLowerCase(),
+        time: data[i][6].toString(),
+        photoUrl: data[i][7].toString()
+      });
+    }
+  }
+
+  return {
+    success: true,
+    records: records,
+    locked: records.length > 0
+  };
+}
+
+// Get ALL attendance for a date, grouped by batch
+function getAllAttendance(date) {
+  const sheet = getAttendanceSheet();
+  const data = sheet.getDataRange().getValues();
+  const batches = {};
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === date) {
+      const batchName = data[i][1].toString();
+      // Map batch name to batch key
+      let batchKey;
+      if (batchName.includes('01') || batchName.includes('5:30')) {
+        batchKey = 'batch_01';
+      } else {
+        batchKey = 'batch_02';
+      }
+
+      if (!batches[batchKey]) {
+        batches[batchKey] = { records: [], locked: false };
+      }
+
+      batches[batchKey].records.push({
+        studentId: data[i][2].toString(),
+        studentName: data[i][3].toString(),
+        status: data[i][5].toString().toLowerCase(),
+        time: data[i][6].toString(),
+        photoUrl: data[i][7].toString()
+      });
+      batches[batchKey].locked = true;
+    }
+  }
+
+  return {
+    success: true,
+    batches: batches,
+    date: date
+  };
+}
+
+function checkBatchLocked(date, batch) {
+  const sheet = getAttendanceSheet();
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === date && data[i][1].toString() === batch) {
+      return { success: true, locked: true };
+    }
+  }
+
+  return { success: true, locked: false };
+}
+
+function getMergedData(date) {
+  const sheet = getAttendanceSheet();
+  const data = sheet.getDataRange().getValues();
+  const merged = {};
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === date) {
+      const studentId = data[i][2].toString();
+      const batch = data[i][1].toString();
+      const status = data[i][5].toString().toLowerCase();
+
+      if (!merged[studentId]) {
+        merged[studentId] = {
+          studentId: studentId,
+          studentName: data[i][3].toString(),
+          appNumber: data[i][4].toString(),
+          batch1Status: '—',
+          batch2Status: '—'
+        };
+      }
+
+      if (batch.includes('01') || batch.includes('5:30')) {
+        merged[studentId].batch1Status = status;
+      } else {
+        merged[studentId].batch2Status = status;
+      }
+    }
+  }
+
+  const result = Object.values(merged).sort((a, b) => 
+    a.studentName.localeCompare(b.studentName)
+  );
+
+  return {
+    success: true,
+    data: result,
+    date: date
+  };
+}
+
+// ======= Photo Upload =======
+
+function uploadPhoto(base64Data, date, batch) {
+  try {
+    // Get or create folder
+    let folders = DriveApp.getFoldersByName(PHOTO_FOLDER_NAME);
+    let folder;
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder(PHOTO_FOLDER_NAME);
+    }
+
+    // Convert base64 to blob
+    const base64Content = base64Data.replace(/^data:image\/\w+;base64,/, '');
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(base64Content),
+      'image/jpeg',
+      `yoga_${date}_${batch.replace(/\s+/g, '_')}_${Date.now()}.jpg`
+    );
+
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+
+    return file.getUrl();
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    return '';
+  }
+}
+
+// ======= Helpers =======
+
+function capitalizeFirst(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}

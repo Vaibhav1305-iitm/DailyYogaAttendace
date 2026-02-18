@@ -1347,66 +1347,47 @@
                 doc.setFont(undefined, 'normal');
                 doc.text(`Date: ${Utils.formatDateDisplay(Store.currentDate)}`, 14, 22);
 
-                // Photo proof section — embed images or show clickable links
+                // Photo proof hyperlinks below the title
                 const dateKey = Store.currentDate;
                 const b1PhotoData = Store.photoUrls.get(`${dateKey}|batch_01`) || '';
                 const b2PhotoData = Store.photoUrls.get(`${dateKey}|batch_02`) || '';
                 let photoY = 22;
                 if (b1PhotoData || b2PhotoData) {
-                    photoY += 4;
+                    photoY += 10;
                     let photoNum = 1;
 
-                    const drawPhotoProof = (label, photoData) => {
-                        const isBase64 = photoData.startsWith('data:image');
+                    const drawPhotoLink = (label, photoData) => {
                         const isUrl = photoData.startsWith('http');
 
-                        if (isBase64) {
-                            // Embed photo thumbnail directly in PDF
-                            doc.setFontSize(9);
-                            doc.setFont(undefined, 'bold');
-                            doc.setTextColor(79, 70, 229);
-                            doc.text(`📷 ${label} - Photo Proof:`, 14, photoY);
-                            photoY += 2;
-                            try {
-                                doc.addImage(photoData, 'JPEG', 14, photoY, 40, 30);
-                                // Draw border around image
-                                doc.setDrawColor(79, 70, 229);
-                                doc.setLineWidth(0.5);
-                                doc.rect(14, photoY, 40, 30, 'S');
-                                photoY += 34;
-                            } catch (imgErr) {
-                                doc.setFontSize(8);
-                                doc.setTextColor(150, 150, 150);
-                                doc.text('(Photo embedded but could not render)', 14, photoY + 4);
-                                photoY += 8;
-                            }
-                        } else if (isUrl) {
-                            // Draw clickable link box
-                            doc.setDrawColor(79, 70, 229);
-                            doc.setLineWidth(0.5);
-                            doc.roundedRect(14, photoY - 4, 180, 8, 1.5, 1.5, 'S');
+                        // Draw bordered box
+                        doc.setDrawColor(79, 70, 229);
+                        doc.setLineWidth(0.5);
+                        doc.roundedRect(14, photoY - 4, 200, 8, 1.5, 1.5, 'S');
 
-                            // Number badge
-                            doc.setFillColor(79, 70, 229);
-                            doc.circle(19, photoY, 2.5, 'F');
-                            doc.setFontSize(7);
-                            doc.setFont(undefined, 'bold');
-                            doc.setTextColor(255, 255, 255);
-                            doc.text(String(photoNum), 19, photoY + 0.8, { align: 'center' });
+                        // Number badge (filled circle)
+                        doc.setFillColor(79, 70, 229);
+                        doc.circle(19, photoY, 2.5, 'F');
+                        doc.setFontSize(7);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(255, 255, 255);
+                        doc.text(String(photoNum), 19, photoY + 0.8, { align: 'center' });
 
-                            // Clickable link text
-                            doc.setFontSize(9);
-                            doc.setFont(undefined, 'bold');
-                            doc.setTextColor(79, 70, 229);
+                        // Link text
+                        doc.setFontSize(9);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(79, 70, 229);
+                        if (isUrl) {
                             doc.textWithLink(label + ' - Photo Proof (click to view)', 24, photoY + 0.5, { url: photoData });
-                            photoY += 10;
+                        } else {
+                            doc.text(label + ' - Photo Proof (captured)', 24, photoY + 0.5);
                         }
 
                         photoNum++;
+                        photoY += 10;
                     };
 
-                    if (b1PhotoData) drawPhotoProof('Batch 1 (5:30 AM)', b1PhotoData);
-                    if (b2PhotoData) drawPhotoProof('Batch 2 (6:00 AM)', b2PhotoData);
+                    if (b1PhotoData) drawPhotoLink('Batch 1 (5:30 AM)', b1PhotoData);
+                    if (b2PhotoData) drawPhotoLink('Batch 2 (6:00 AM)', b2PhotoData);
 
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');

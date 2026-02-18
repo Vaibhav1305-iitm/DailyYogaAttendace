@@ -397,9 +397,10 @@
                 const raw = localStorage.getItem('yoga_settings');
                 if (raw) {
                     const s = JSON.parse(raw);
+                    // Only override defaults if localStorage has non-empty values
                     if (s.sheetId) CONFIG.SHEET_ID = s.sheetId;
                     if (s.sheetGid) CONFIG.SHEET_GID = s.sheetGid;
-                    if (s.apiUrl !== undefined) CONFIG.API_URL = s.apiUrl;
+                    if (s.apiUrl) CONFIG.API_URL = s.apiUrl;
                 }
             } catch (e) { /* ignore */ }
         },

@@ -509,9 +509,9 @@
             UI.showToast(`${students.length} students loaded`, 'success');
         },
 
-        // --- Cloud Attendance Sync (JSONP — bypasses CORS from file://) ---
+        // --- Cloud Attendance Sync (Google Visualization API JSONP — reliable from file://) ---
         fetchAttendance(date) {
-            if (!CONFIG.API_URL) return Promise.resolve(false);
+            if (!CONFIG.SHEET_ID) return Promise.resolve(false);
 
             return new Promise((resolve) => {
                 const callbackName = '_attCallback_' + Date.now();
@@ -522,15 +522,41 @@
                     if (script.parentNode) script.parentNode.removeChild(script);
                 };
 
-                window[callbackName] = (result) => {
+                window[callbackName] = (response) => {
                     cleanup();
                     try {
-                        if (result && result.success && result.batches) {
+                        if (response && response.table && response.table.rows) {
+                            const rows = response.table.rows;
+                            if (rows.length === 0) { resolve(false); return; }
+
                             const dateKey = date;
                             if (!Store.attendance[dateKey]) Store.attendance[dateKey] = {};
 
-                            for (const batchKey in result.batches) {
-                                const batchData = result.batches[batchKey];
+                            // Group records by batch
+                            const batches = {};
+                            for (let i = 0; i < rows.length; i++) {
+                                const cells = rows[i].c;
+                                const rowDate = cells[0] && cells[0].v ? String(cells[0].v).trim() : '';
+                                const batchName = cells[1] && cells[1].v ? String(cells[1].v).trim() : '';
+                                const studentId = cells[2] && cells[2].v ? String(cells[2].v).trim() : '';
+                                const status = cells[5] && cells[5].v ? String(cells[5].v).trim().toLowerCase() : 'leave';
+
+                                if (!studentId || rowDate !== date) continue;
+
+                                // Map batch name to batch key
+                                let batchKey;
+                                if (batchName.includes('01') || batchName.includes('5:30')) {
+                                    batchKey = 'batch_01';
+                                } else {
+                                    batchKey = 'batch_02';
+                                }
+
+                                if (!batches[batchKey]) batches[batchKey] = [];
+                                batches[batchKey].push({ studentId, status });
+                            }
+
+                            // Merge into Store
+                            for (const batchKey in batches) {
                                 const batchMap = new Map();
 
                                 // Set all students to leave first
@@ -539,17 +565,15 @@
                                 });
 
                                 // Override with cloud data
-                                for (const rec of batchData.records) {
+                                for (const rec of batches[batchKey]) {
                                     batchMap.set(rec.studentId, rec.status || CONFIG.STATUSES.LEAVE);
                                 }
 
                                 Store.attendance[dateKey][batchKey] = batchMap;
 
-                                // Mark batch as locked if cloud has data
-                                if (batchData.locked && batchData.records.length > 0) {
-                                    const lockKey = Store.lockKey(dateKey, batchKey);
-                                    Store.lockedBatches.add(lockKey);
-                                }
+                                // Mark batch as locked (cloud has data)
+                                const lockKey = Store.lockKey(dateKey, batchKey);
+                                Store.lockedBatches.add(lockKey);
                             }
 
                             Store._invalidateCache();
@@ -567,7 +591,7 @@
 
                 script.onerror = () => {
                     cleanup();
-                    console.error('Fetch attendance JSONP error');
+                    console.error('Fetch attendance error');
                     resolve(false);
                 };
 
@@ -579,7 +603,10 @@
                     }
                 }, 15000);
 
-                script.src = `${CONFIG.API_URL}?action=getAllAttendance&date=${encodeURIComponent(date)}&callback=${callbackName}`;
+                // Use Google Visualization API JSONP — reads Attendance sheet directly
+                // Filter by date using SQL query
+                const tq = encodeURIComponent(`select * where A='${date}'`);
+                script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=Attendance&tq=${tq}`;
                 document.body.appendChild(script);
             });
         }

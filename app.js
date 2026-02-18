@@ -569,8 +569,14 @@
                                     batchKey = 'batch_02';
                                 }
 
-                                if (!batches[batchKey]) batches[batchKey] = [];
-                                batches[batchKey].push({ studentId, status });
+                                if (!batches[batchKey]) batches[batchKey] = { records: [], photoUrl: '' };
+                                batches[batchKey].records.push({ studentId, status });
+
+                                // Extract Photo_URL from column 7 (if available)
+                                const cellPhotoUrl = cells[7] && cells[7].v ? String(cells[7].v).trim() : '';
+                                if (cellPhotoUrl && !batches[batchKey].photoUrl) {
+                                    batches[batchKey].photoUrl = cellPhotoUrl;
+                                }
                             }
 
                             // Merge into Store
@@ -583,11 +589,17 @@
                                 });
 
                                 // Override with cloud data
-                                for (const rec of batches[batchKey]) {
+                                for (const rec of batches[batchKey].records) {
                                     batchMap.set(rec.studentId, rec.status || CONFIG.STATUSES.LEAVE);
                                 }
 
                                 Store.attendance[dateKey][batchKey] = batchMap;
+
+                                // Store photo URL from cloud (if available)
+                                if (batches[batchKey].photoUrl) {
+                                    const photoKey = `${dateKey}|${batchKey}`;
+                                    Store.photoUrls.set(photoKey, batches[batchKey].photoUrl);
+                                }
 
                                 // Mark batch as locked (cloud has data)
                                 const lockKey = Store.lockKey(dateKey, batchKey);
@@ -1019,6 +1031,11 @@
 
             if (cloudSaved || !CONFIG.API_URL) {
                 // Lock batch only if cloud saved OR no cloud configured
+                // Store photo base64 locally for PDF/Excel export
+                const photoKey = `${Store.currentDate}|${Store.currentBatch}`;
+                if (Store.photoBase64) {
+                    Store.photoUrls.set(photoKey, Store.photoBase64);
+                }
                 Store.lockCurrentBatch(photoUrl);
                 StorageManager.saveRecords(records);
                 dom.saveModal.classList.remove('active');
@@ -1330,41 +1347,66 @@
                 doc.setFont(undefined, 'normal');
                 doc.text(`Date: ${Utils.formatDateDisplay(Store.currentDate)}`, 14, 22);
 
-                // Photo proof links below the title — styled with border, bold font, and number
+                // Photo proof section — embed images or show clickable links
                 const dateKey = Store.currentDate;
-                const b1PhotoUrl = Store.photoUrls.get(`${dateKey}|batch_01`) || '';
-                const b2PhotoUrl = Store.photoUrls.get(`${dateKey}|batch_02`) || '';
+                const b1PhotoData = Store.photoUrls.get(`${dateKey}|batch_01`) || '';
+                const b2PhotoData = Store.photoUrls.get(`${dateKey}|batch_02`) || '';
                 let photoY = 22;
-                if (b1PhotoUrl || b2PhotoUrl) {
+                if (b1PhotoData || b2PhotoData) {
                     photoY += 4;
                     let photoNum = 1;
 
-                    const drawPhotoBox = (label, url) => {
-                        // Draw bordered box
-                        doc.setDrawColor(79, 70, 229);
-                        doc.setLineWidth(0.5);
-                        doc.roundedRect(14, photoY - 4, 120, 8, 1.5, 1.5, 'S');
+                    const drawPhotoProof = (label, photoData) => {
+                        const isBase64 = photoData.startsWith('data:image');
+                        const isUrl = photoData.startsWith('http');
 
-                        // Number badge (filled circle with number)
-                        doc.setFillColor(79, 70, 229);
-                        doc.circle(19, photoY, 2.5, 'F');
-                        doc.setFontSize(7);
-                        doc.setFont(undefined, 'bold');
-                        doc.setTextColor(255, 255, 255);
-                        doc.text(String(photoNum), 19, photoY + 0.8, { align: 'center' });
+                        if (isBase64) {
+                            // Embed photo thumbnail directly in PDF
+                            doc.setFontSize(9);
+                            doc.setFont(undefined, 'bold');
+                            doc.setTextColor(79, 70, 229);
+                            doc.text(`📷 ${label} - Photo Proof:`, 14, photoY);
+                            photoY += 2;
+                            try {
+                                doc.addImage(photoData, 'JPEG', 14, photoY, 40, 30);
+                                // Draw border around image
+                                doc.setDrawColor(79, 70, 229);
+                                doc.setLineWidth(0.5);
+                                doc.rect(14, photoY, 40, 30, 'S');
+                                photoY += 34;
+                            } catch (imgErr) {
+                                doc.setFontSize(8);
+                                doc.setTextColor(150, 150, 150);
+                                doc.text('(Photo embedded but could not render)', 14, photoY + 4);
+                                photoY += 8;
+                            }
+                        } else if (isUrl) {
+                            // Draw clickable link box
+                            doc.setDrawColor(79, 70, 229);
+                            doc.setLineWidth(0.5);
+                            doc.roundedRect(14, photoY - 4, 180, 8, 1.5, 1.5, 'S');
 
-                        // Link text
-                        doc.setFontSize(9);
-                        doc.setFont(undefined, 'bold');
-                        doc.setTextColor(79, 70, 229);
-                        doc.textWithLink(label + ' - Photo Proof (click to view)', 24, photoY + 0.5, { url });
+                            // Number badge
+                            doc.setFillColor(79, 70, 229);
+                            doc.circle(19, photoY, 2.5, 'F');
+                            doc.setFontSize(7);
+                            doc.setFont(undefined, 'bold');
+                            doc.setTextColor(255, 255, 255);
+                            doc.text(String(photoNum), 19, photoY + 0.8, { align: 'center' });
+
+                            // Clickable link text
+                            doc.setFontSize(9);
+                            doc.setFont(undefined, 'bold');
+                            doc.setTextColor(79, 70, 229);
+                            doc.textWithLink(label + ' - Photo Proof (click to view)', 24, photoY + 0.5, { url: photoData });
+                            photoY += 10;
+                        }
 
                         photoNum++;
-                        photoY += 10;
                     };
 
-                    if (b1PhotoUrl) drawPhotoBox('Batch 1 (5:30 AM)', b1PhotoUrl);
-                    if (b2PhotoUrl) drawPhotoBox('Batch 2 (6:00 AM)', b2PhotoUrl);
+                    if (b1PhotoData) drawPhotoProof('Batch 1 (5:30 AM)', b1PhotoData);
+                    if (b2PhotoData) drawPhotoProof('Batch 2 (6:00 AM)', b2PhotoData);
 
                     doc.setTextColor(0, 0, 0);
                     doc.setFont(undefined, 'normal');

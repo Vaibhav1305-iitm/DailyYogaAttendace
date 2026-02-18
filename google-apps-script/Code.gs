@@ -48,6 +48,9 @@ function doGet(e) {
       case 'saveViaGet':
         result = saveAttendanceViaGet(e.parameter);
         break;
+      case 'getPhotoUrl':
+        result = getPhotoUrlForBatch(e.parameter.date, e.parameter.batch);
+        break;
       default:
         result = { success: false, error: 'Unknown action' };
     }
@@ -114,6 +117,9 @@ function doPost(e) {
     switch (action) {
       case 'saveAttendance':
         result = saveAttendance(payload.data, payload.photo);
+        break;
+      case 'uploadPhoto':
+        result = uploadPhotoAndUpdateSheet(payload.date, payload.batch, payload.photo);
         break;
       default:
         result = { success: false, error: 'Unknown action: ' + action };
@@ -441,6 +447,65 @@ function uploadPhoto(base64Data, date, batch) {
     console.error('Photo upload error:', err);
     return '';
   }
+}
+
+// ======= Upload Photo & Update Sheet =======
+
+function uploadPhotoAndUpdateSheet(date, batch, photoBase64) {
+  if (!date || !batch || !photoBase64) {
+    return { success: false, error: 'Missing date, batch, or photo data' };
+  }
+
+  try {
+    // Upload photo to Drive
+    var photoUrl = uploadPhoto(photoBase64, date, batch);
+    if (!photoUrl) {
+      return { success: false, error: 'Photo upload failed' };
+    }
+
+    // Update Photo_URL column (column 8) in existing attendance rows for this date+batch
+    var sheet = getAttendanceSheet();
+    var data = sheet.getDataRange().getValues();
+    var updated = 0;
+
+    for (var i = 1; i < data.length; i++) {
+      var rowDate = data[i][0].toString();
+      var rowBatch = data[i][1].toString();
+      if (rowDate === date && rowBatch === batch) {
+        sheet.getRange(i + 1, 8).setValue(photoUrl);  // Column 8 = Photo_URL
+        updated++;
+      }
+    }
+
+    return {
+      success: true,
+      photoUrl: photoUrl,
+      updated: updated,
+      message: 'Photo uploaded and ' + updated + ' rows updated'
+    };
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
+}
+
+function getPhotoUrlForBatch(date, batch) {
+  if (!date || !batch) {
+    return { success: false, error: 'Missing date or batch' };
+  }
+
+  var sheet = getAttendanceSheet();
+  var data = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === date && data[i][1].toString() === batch) {
+      var url = data[i][7] ? data[i][7].toString() : '';
+      if (url) {
+        return { success: true, photoUrl: url };
+      }
+    }
+  }
+
+  return { success: true, photoUrl: '' };
 }
 
 // ======= Helpers =======

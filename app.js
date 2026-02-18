@@ -1005,22 +1005,83 @@
                         UI.showToast('❌ Sheet error: ' + (result.error || 'Unknown'), 'error');
                     }
 
-                    // Try to upload photo separately via no-cors POST (best effort)
+                    // Upload photo via hidden form+iframe (bypasses CORS)
                     if (cloudSaved && Store.photoBase64) {
                         try {
-                            await fetch(CONFIG.API_URL, {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                    action: 'uploadPhoto',
-                                    date: Store.currentDate,
-                                    batch: batchConfig.name,
-                                    photo: Store.photoBase64
-                                }),
-                                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                mode: 'no-cors'
+                            UI.showToast('📷 Uploading photo proof...', 'info');
+
+                            // Create hidden iframe for form target
+                            const iframeName = '_photoUploadFrame_' + Date.now();
+                            const iframe = document.createElement('iframe');
+                            iframe.name = iframeName;
+                            iframe.style.display = 'none';
+                            document.body.appendChild(iframe);
+
+                            // Create hidden form
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = CONFIG.API_URL;
+                            form.target = iframeName;
+                            form.style.display = 'none';
+
+                            // Add payload as hidden input
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'payload';
+                            input.value = JSON.stringify({
+                                action: 'uploadPhoto',
+                                date: Store.currentDate,
+                                batch: batchConfig.name,
+                                photo: Store.photoBase64
                             });
+                            form.appendChild(input);
+                            document.body.appendChild(form);
+
+                            // Submit form (CORS-free POST via iframe)
+                            form.submit();
+
+                            // After delay, fetch the photo URL via JSONP
+                            setTimeout(() => {
+                                // Clean up form and iframe
+                                if (form.parentNode) form.parentNode.removeChild(form);
+                                if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+
+                                // Retrieve photo URL via JSONP GET
+                                const urlCbName = '_photoUrlCb_' + Date.now();
+                                const urlScript = document.createElement('script');
+
+                                window[urlCbName] = (resp) => {
+                                    delete window[urlCbName];
+                                    if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
+
+                                    if (resp && resp.photoUrl) {
+                                        const photoKey = `${Store.currentDate}|${Store.currentBatch}`;
+                                        Store.photoUrls.set(photoKey, resp.photoUrl);
+                                        StorageManager.saveState();
+                                        UI.showToast('📷 Photo proof uploaded ✓', 'success');
+                                        console.log('Photo URL saved:', resp.photoUrl);
+                                    }
+                                };
+
+                                urlScript.onerror = () => {
+                                    delete window[urlCbName];
+                                    if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
+                                };
+
+                                // Timeout cleanup
+                                setTimeout(() => {
+                                    if (window[urlCbName]) {
+                                        delete window[urlCbName];
+                                        if (urlScript.parentNode) urlScript.parentNode.removeChild(urlScript);
+                                    }
+                                }, 15000);
+
+                                urlScript.src = `${CONFIG.API_URL}?action=getPhotoUrl&date=${encodeURIComponent(Store.currentDate)}&batch=${encodeURIComponent(batchConfig.name)}&callback=${urlCbName}`;
+                                document.body.appendChild(urlScript);
+                            }, 8000); // Wait 8 seconds for photo upload to complete
+
                         } catch (photoErr) {
-                            console.log('Photo upload skipped (CORS)', photoErr.message);
+                            console.log('Photo upload error:', photoErr.message);
                         }
                     }
                 } catch (err) {
@@ -1031,11 +1092,6 @@
 
             if (cloudSaved || !CONFIG.API_URL) {
                 // Lock batch only if cloud saved OR no cloud configured
-                // Store photo base64 locally for PDF/Excel export
-                const photoKey = `${Store.currentDate}|${Store.currentBatch}`;
-                if (Store.photoBase64) {
-                    Store.photoUrls.set(photoKey, Store.photoBase64);
-                }
                 Store.lockCurrentBatch(photoUrl);
                 StorageManager.saveRecords(records);
                 dom.saveModal.classList.remove('active');

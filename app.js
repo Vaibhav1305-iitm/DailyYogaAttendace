@@ -1401,19 +1401,23 @@
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
 
-                // Add Photo Links sheet with HYPERLINK formula (works in SheetJS community edition)
+                // Add Photo Links sheet with clickable hyperlinks
                 const photoData = [];
                 if (b1PhotoUrl) photoData.push({ 'Batch': 'Batch 01 (5:30 AM)', 'Photo Proof Link': b1PhotoUrl });
                 if (b2PhotoUrl) photoData.push({ 'Batch': 'Batch 02 (6:00 AM)', 'Photo Proof Link': b2PhotoUrl });
                 if (photoData.length > 0) {
                     const psWs = XLSX.utils.json_to_sheet(photoData);
                     psWs['!cols'] = [{ wch: 22 }, { wch: 60 }];
-                    // Use HYPERLINK formula for clickable links (community edition compatible)
+                    // Use SheetJS native 'l' property for real clickable hyperlinks
                     photoData.forEach((row, i) => {
                         const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 1 });
                         const url = row['Photo Proof Link'];
-                        if (url) {
-                            psWs[cellRef] = { t: 's', f: 'HYPERLINK("' + url + '","\ud83d\udcf7 Click to view photo proof")' };
+                        if (url && url.startsWith('http')) {
+                            psWs[cellRef] = {
+                                t: 's',
+                                v: '📷 Click to view photo proof',
+                                l: { Target: url, Tooltip: 'Open photo proof' }
+                            };
                         }
                     });
                     XLSX.utils.book_append_sheet(wb, psWs, 'Photo Proofs');
@@ -1430,7 +1434,8 @@
         exportPdf() {
             try {
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('l', 'mm', 'a4');
+                // Portrait orientation for A4
+                const doc = new jsPDF('p', 'mm', 'a4');
                 doc.setFontSize(16);
                 doc.setFont(undefined, 'bold');
                 doc.text('Yoga Attendance Report', 14, 15);
@@ -1450,10 +1455,10 @@
                     const drawPhotoLink = (label, photoData) => {
                         const isUrl = photoData.startsWith('http');
 
-                        // Draw bordered box
+                        // Draw bordered box (A4 portrait: 210mm - 28mm margins = 182mm usable)
                         doc.setDrawColor(79, 70, 229);
                         doc.setLineWidth(0.5);
-                        doc.roundedRect(14, photoY - 4, 200, 8, 1.5, 1.5, 'S');
+                        doc.roundedRect(14, photoY - 4, 182, 8, 1.5, 1.5, 'S');
 
                         // Number badge (filled circle)
                         doc.setFillColor(79, 70, 229);
@@ -1487,24 +1492,24 @@
                 const data = this.getMergedExportData();
                 const tableData = data.map(row => [row['Sr. No.'], row['Student Name'], row['App Number'], row['Batch 1 (5:30 AM)'], row['Batch 2 (6:00 AM)'], row['Final Status']]);
 
-                // A4 landscape = 297mm wide, margins 14mm each side → 269mm usable
+                // A4 portrait = 210mm wide, margins 10mm each side → 190mm usable
                 doc.autoTable({
                     startY: photoY + 4,
-                    head: [['#', 'Student Name', 'App Number', 'Batch 1 (5:30)', 'Batch 2 (6:00)', 'Final Status']],
+                    head: [['#', 'Student Name', 'App No.', 'B1 (5:30)', 'B2 (6:00)', 'Final']],
                     body: tableData,
                     theme: 'grid',
                     tableWidth: 'auto',
-                    margin: { left: 14, right: 14 },
-                    styles: { fontSize: 9, cellPadding: 4 },
-                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 10 },
+                    margin: { left: 10, right: 10 },
+                    styles: { fontSize: 8, cellPadding: 3 },
+                    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
                     alternateRowStyles: { fillColor: [248, 250, 252] },
                     columnStyles: {
-                        0: { halign: 'center', cellWidth: 15 },
-                        1: { cellWidth: 80 },
-                        2: { cellWidth: 45 },
-                        3: { halign: 'center', cellWidth: 43 },
-                        4: { halign: 'center', cellWidth: 43 },
-                        5: { halign: 'center', cellWidth: 43, fontStyle: 'bold' }
+                        0: { halign: 'center', cellWidth: 12 },
+                        1: { cellWidth: 58 },
+                        2: { cellWidth: 30 },
+                        3: { halign: 'center', cellWidth: 28 },
+                        4: { halign: 'center', cellWidth: 28 },
+                        5: { halign: 'center', cellWidth: 28, fontStyle: 'bold' }
                     }
                 });
 

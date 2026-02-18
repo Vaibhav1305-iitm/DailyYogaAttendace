@@ -536,7 +536,24 @@
                             const batches = {};
                             for (let i = 0; i < rows.length; i++) {
                                 const cells = rows[i].c;
-                                const rowDate = cells[0] && cells[0].v ? String(cells[0].v).trim() : '';
+                                // Handle GViz date values (can be Date obj or string)
+                                let rowDate;
+                                if (cells[0] && cells[0].v != null) {
+                                    if (cells[0].f) {
+                                        // Use formatted value (e.g., "2026-02-19")
+                                        rowDate = String(cells[0].f).trim();
+                                    } else {
+                                        rowDate = String(cells[0].v).trim();
+                                    }
+                                } else {
+                                    rowDate = '';
+                                }
+                                // Normalize date: extract yyyy-mm-dd from various formats
+                                const dateMatch = rowDate.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+                                if (dateMatch) {
+                                    rowDate = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+                                }
+
                                 const batchName = cells[1] && cells[1].v ? String(cells[1].v).trim() : '';
                                 const studentId = cells[2] && cells[2].v ? String(cells[2].v).trim() : '';
                                 const status = cells[5] && cells[5].v ? String(cells[5].v).trim().toLowerCase() : 'leave';
@@ -604,10 +621,9 @@
                 }, 15000);
 
                 // Use Google Visualization API JSONP — reads Attendance sheet directly
-                // Reads from Daily Yoga Attendance spreadsheet
+                // No SQL filter — filter dates client-side (handles Date vs String type)
                 const ATTENDANCE_SHEET_ID = '1Vq1cQgW4Cm7-cC3aKglFhRGwBJu6-ZMnKecrL1nVAxs';
-                const tq = encodeURIComponent(`select * where A='${date}'`);
-                script.src = `https://docs.google.com/spreadsheets/d/${ATTENDANCE_SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=Attendance&tq=${tq}`;
+                script.src = `https://docs.google.com/spreadsheets/d/${ATTENDANCE_SHEET_ID}/gviz/tq?tqx=responseHandler:${callbackName}&sheet=Attendance`;
                 document.body.appendChild(script);
             });
         }

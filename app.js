@@ -921,78 +921,43 @@
                         photo: Store.photoBase64
                     });
 
-                    // Use hidden form + iframe to bypass CORS from file:// origin
-                    const result = await new Promise((resolve, reject) => {
-                        const iframeName = '_saveFrame_' + Date.now();
-                        const iframe = document.createElement('iframe');
-                        iframe.name = iframeName;
-                        iframe.style.display = 'none';
-                        document.body.appendChild(iframe);
+                    try {
+                        // Attempt 1: Direct fetch POST (works from https:// origins like Netlify)
+                        const resp = await fetch(CONFIG.API_URL, {
+                            method: 'POST',
+                            body: payload,
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            redirect: 'follow'
+                        });
+                        const result = await resp.json();
+                        if (result.success) {
+                            cloudSaved = true;
+                            photoUrl = result.photoUrl || null;
+                            UI.showToast(`✅ Saved to Google Sheet! (${result.message || 'done'})`, 'success');
+                        } else {
+                            UI.showToast('❌ Sheet error: ' + (result.error || 'Unknown'), 'error');
+                        }
+                    } catch (fetchErr) {
+                        // Attempt 2: CORS blocked reading response — try no-cors (data IS sent)
+                        console.log('Fetch CORS failed, trying no-cors...', fetchErr.message);
+                        await fetch(CONFIG.API_URL, {
+                            method: 'POST',
+                            body: payload,
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            mode: 'no-cors'
+                        });
 
-                        const form = document.createElement('form');
-                        form.method = 'POST';
-                        form.action = CONFIG.API_URL;
-                        form.target = iframeName;
-                        form.style.display = 'none';
-
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'payload';
-                        input.value = payload;
-                        form.appendChild(input);
-                        document.body.appendChild(form);
-
-                        // Listen for iframe load
-                        iframe.onload = () => {
-                            try {
-                                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                                const scriptTag = iframeDoc.querySelector('script');
-                                if (scriptTag && scriptTag.textContent) {
-                                    // Extract the response variable 'r' from the script
-                                    const match = scriptTag.textContent.match(/var r=(.+);/);
-                                    if (match) {
-                                        resolve(JSON.parse(match[1]));
-                                    } else {
-                                        resolve({ success: true }); // Script ran but no parseable result
-                                    }
-                                } else {
-                                    resolve({ success: true }); // Assume success if iframe loaded
-                                }
-                            } catch (crossOriginErr) {
-                                // Cross-origin iframe — can't read content but submission worked
-                                resolve({ success: true });
-                            } finally {
-                                setTimeout(() => {
-                                    document.body.removeChild(iframe);
-                                    document.body.removeChild(form);
-                                }, 1000);
-                            }
-                        };
-
-                        iframe.onerror = () => {
-                            document.body.removeChild(iframe);
-                            document.body.removeChild(form);
-                            reject(new Error('Iframe submission failed'));
-                        };
-
-                        // Timeout after 30 seconds
-                        setTimeout(() => {
-                            if (iframe.parentNode) {
-                                document.body.removeChild(iframe);
-                                document.body.removeChild(form);
-                                reject(new Error('Save timeout'));
-                            }
-                        }, 30000);
-
-                        form.submit();
-                    });
-
-                    if (result.success) {
-                        cloudSaved = true;
-                        photoUrl = result.photoUrl || null;
-                        UI.showToast(`✅ Saved to Google Sheet!`, 'success');
-                    } else {
-                        UI.showToast('❌ Sheet error: ' + (result.error || 'Unknown'), 'error');
+                        // Wait for Google to process, then verify via GViz API
+                        UI.showToast('📤 Verifying save...', 'info');
+                        await new Promise(r => setTimeout(r, 3000));
+                        const verified = await API.fetchAttendance(Store.currentDate);
+                        if (verified) {
+                            cloudSaved = true;
+                            UI.showToast('✅ Saved & verified from Google Sheet!', 'success');
+                        } else {
+                            UI.showToast('⚠️ Data sent but could not verify. Check sheet manually.', 'error');
+                            cloudSaved = true; // Assume success — no-cors POST was sent
+                        }
                     }
                 } catch (err) {
                     console.error('Cloud save error:', err);

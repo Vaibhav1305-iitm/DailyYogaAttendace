@@ -71,17 +71,38 @@ function doPost(e) {
   try {
     let payload;
 
-    // Form-encoded POST (from hidden form+iframe — bypasses CORS)
-    if (e.parameter && e.parameter.payload) {
-      payload = JSON.parse(e.parameter.payload);
+    // Method 1: Raw JSON body (from fetch POST with text/plain)
+    if (e.postData && e.postData.contents) {
+      try {
+        payload = JSON.parse(e.postData.contents);
+      } catch (parseErr) {
+        // Not raw JSON — might be form-encoded, try next method
+      }
     }
-    // Standard JSON POST (from fetch)
-    else if (e.postData && e.postData.contents) {
-      payload = JSON.parse(e.postData.contents);
+
+    // Method 2: Form-encoded POST (from hidden form+iframe)
+    if (!payload && e.parameter && e.parameter.payload) {
+      try {
+        payload = JSON.parse(e.parameter.payload);
+      } catch (parseErr2) {
+        // Form payload parse failed
+      }
+    }
+
+    // Method 3: Extract from URL-encoded body (fallback)
+    if (!payload && e.postData && e.postData.contents && e.postData.contents.indexOf('payload=') === 0) {
+      try {
+        const decoded = decodeURIComponent(e.postData.contents.substring(8));
+        payload = JSON.parse(decoded);
+      } catch (parseErr3) {
+        // All parse methods failed
+      }
     }
 
     if (!payload) {
-      return htmlResponse({ success: false, error: 'No data received' });
+      return ContentService
+        .createTextOutput(JSON.stringify({ success: false, error: 'No data received. postData type: ' + (e.postData ? e.postData.type : 'none') }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     const action = payload.action;
@@ -91,20 +112,16 @@ function doPost(e) {
         result = saveAttendance(payload.data, payload.photo);
         break;
       default:
-        result = { success: false, error: 'Unknown action' };
+        result = { success: false, error: 'Unknown action: ' + action };
     }
   } catch (err) {
     result = { success: false, error: err.toString() };
   }
 
-  // Return as HTML (works with form+iframe submissions)
-  return htmlResponse(result);
-}
-
-// HTML response helper for form+iframe POST
-function htmlResponse(obj) {
-  const html = '<html><body><script>var r=' + JSON.stringify(obj) + ';</script></body></html>';
-  return HtmlService.createHtmlOutput(html);
+  // Return JSON (ContentService — works with fetch, no X-Frame-Options issues)
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ======= Student Functions =======

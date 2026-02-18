@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Yoga Attendance Tracker - Daily hostel yoga batch attendance management">
+  <title>Yoga Attendance</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="top-bar" id="topBar">
+    <button class="top-bar__menu" id="menuBtn" aria-label="Menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </svg>
+    </button>
+    <input type="text" class="top-bar__search" id="searchInput" placeholder="Search students..." autocomplete="off"
+      inputmode="search">
+    <button class="top-bar__action" id="refreshBtn" aria-label="Refresh">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+      </svg>
+    </button>
+    <div class="top-bar__avatar" id="adminAvatar">A</div>
+  </header>
+
+  <!-- ============ SIDEBAR DRAWER ============ -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar__header">
+      <div class="sidebar__avatar">🧘</div>
+      <div>
+        <div class="sidebar__name">Yoga Attendance</div>
+        <div class="sidebar__role">Hostel Management</div>
+      </div>
+    </div>
+    <button class="sidebar__menu-item" onclick="closeSidebar()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+      Home
+    </button>
+    <button class="sidebar__menu-item" id="sidebarMerge">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="8" y="14" width="8" height="7" />
+        <line x1="6.5" y1="10" x2="10" y2="14" />
+        <line x1="17.5" y1="10" x2="14" y2="14" />
+      </svg>
+      Merge & Export
+    </button>
+    <button class="sidebar__menu-item" id="sidebarSettings">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+      </svg>
+      Settings
+    </button>
+    <button class="sidebar__menu-item" id="sidebarAbout">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+      About
+    </button>
+  </aside>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <main id="mainContent">
+
+    <!-- Sticky Section (pinned below top bar on scroll) -->
+    <div class="sticky-header">
+
+      <!-- Summary Card -->
+      <div class="summary-card" id="summaryCard">
+        <div class="summary-card__locked" id="lockedBadge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+          SAVED
+        </div>
+        <div class="summary-card__header">
+          <div>
+            <div class="summary-card__batch-label" id="batchLabel">Batch 01 — 5:30 AM</div>
+            <div class="summary-card__present-count" id="presentCount">0</div>
+            <div class="summary-card__date" id="dateDisplay">—</div>
+          </div>
+          <div class="summary-card__right">
+            <div class="summary-card__absent-label">Absent</div>
+            <div class="summary-card__absent-count" id="absentCount">0</div>
+            <div class="summary-card__leave-info" id="leaveCount">Leave: 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date & Batch Selector -->
+      <div class="selector-row">
+        <div class="date-picker-wrap">
+          <div class="date-picker-wrap__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+          <input type="date" class="date-picker" id="datePicker">
+        </div>
+        <div class="batch-select-wrap">
+          <select class="batch-select" id="batchSelect">
+            <option value="batch_01">B1 (5:30)</option>
+            <option value="batch_02">B2 (6:00)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Status Hint -->
+      <div class="status-hint">
+        <span><span class="dot dot--present"></span> Tap = Present</span>
+        <span><span class="dot dot--absent"></span> Double tap = Absent</span>
+      </div>
+
+    </div><!-- /sticky-header -->
+
+    <!-- Student List Header -->
+    <div class="list-header">
+      <div class="list-header__title">Students</div>
+      <div class="list-header__right">
+        <button class="list-header__refresh" id="listRefreshBtn" aria-label="Refresh list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+          </svg>
+        </button>
+        <div class="list-header__count" id="totalCount">0 TOTAL</div>
+      </div>
+    </div>
+
+    <!-- Student Piles Container -->
+    <div id="pilesContainer">
+      <!-- Present Pile -->
+      <div class="pile-section" id="presentPile">
+        <div class="pile-header" data-pile="present">
+          <div class="pile-header__dot pile-header__dot--present"></div>
+          <div class="pile-header__label">Present</div>
+          <div class="pile-header__count pile-header__count--present" id="presentPileCount">0</div>
+          <svg class="pile-header__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="pile-list" id="presentList"></div>
+      </div>
+
+      <!-- Absent Pile -->
+      <div class="pile-section" id="absentPile">
+        <div class="pile-header" data-pile="absent">
+          <div class="pile-header__dot pile-header__dot--absent"></div>
+          <div class="pile-header__label">Absent</div>
+          <div class="pile-header__count pile-header__count--absent" id="absentPileCount">0</div>
+          <svg class="pile-header__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="pile-list" id="absentList"></div>
+      </div>
+
+      <!-- Leave Pile -->
+      <div class="pile-section" id="leavePile">
+        <div class="pile-header" data-pile="leave">
+          <div class="pile-header__dot pile-header__dot--leave"></div>
+          <div class="pile-header__label">Leave (Default)</div>
+          <div class="pile-header__count pile-header__count--leave" id="leavePileCount">0</div>
+          <svg class="pile-header__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.5" stroke-linecap="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div class="pile-list" id="leaveList"></div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" style="display:none;">
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state" style="display:none;">
+      <div class="empty-state__icon">📋</div>
+      <div class="empty-state__text">Select a date and batch to load students</div>
+    </div>
+
+  </main>
+
+  <!-- ============ SAVE BAR ============ -->
+  <div class="save-bar" id="saveBar">
+    <button class="save-btn" id="saveBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round">
+        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </svg>
+      Save Attendance
+    </button>
+  </div>
+
+  <!-- ============ BOTTOM NAVIGATION ============ -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav__item active" data-tab="home">
+      <svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+      <span class="bottom-nav__label">Home</span>
+    </button>
+    <button class="bottom-nav__item" data-tab="report">
+      <svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      <span class="bottom-nav__label">Report</span>
+    </button>
+    <button class="bottom-nav__item" data-tab="section">
+      <svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+      </svg>
+      <span class="bottom-nav__label">Section</span>
+    </button>
+    <button class="bottom-nav__item" data-tab="sync">
+      <svg class="bottom-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+      </svg>
+      <span class="bottom-nav__label">Sync</span>
+    </button>
+  </nav>
+
+  <!-- ============ SAVE MODAL ============ -->
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <div class="modal__handle"></div>
+      <div class="modal__title">Save Attendance</div>
+      <div class="modal__subtitle" id="saveModalInfo">Upload a photo as proof before saving attendance.</div>
+
+      <!-- Photo Upload -->
+      <div class="photo-upload" id="photoUpload">
+        <div class="photo-upload__icon" id="photoIcon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+        </div>
+        <div class="photo-upload__text" id="photoText">Tap to capture or upload photo</div>
+        <div class="photo-upload__subtext" id="photoSubtext">Photo is compulsory for saving</div>
+        <img class="photo-upload__preview" id="photoPreview" style="display:none;" alt="Proof photo">
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;">
+
+      <!-- Save Summary -->
+      <div id="saveSummary" style="margin-bottom:16px; font-size:0.8rem; color:var(--text-secondary); line-height:1.6;">
+      </div>
+
+      <button class="modal__save-btn" id="confirmSaveBtn" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Confirm & Save
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ STATUS POPOVER ============ -->
+  <div class="status-popover" id="statusPopover">
+    <button class="status-popover__option status-popover__option--present" data-action="present">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      Mark Present
+    </button>
+    <button class="status-popover__option status-popover__option--absent" data-action="absent">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+      Mark Absent
+    </button>
+    <button class="status-popover__option status-popover__option--leave" data-action="leave">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+      Reset to Leave
+    </button>
+  </div>
+
+  <!-- ============ MERGE VIEW ============ -->
+  <div class="merge-overlay" id="mergeOverlay">
+    <div class="merge-header">
+      <button class="merge-header__back" id="mergeBackBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+      </button>
+      <div class="merge-header__title" id="mergeTitle">Merged Report</div>
+    </div>
+    <div class="merge-body" id="mergeBody"></div>
+    <div class="merge-actions">
+      <button class="merge-actions__btn merge-actions__btn--excel" id="exportExcelBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        Excel
+      </button>
+      <button class="merge-actions__btn merge-actions__btn--pdf" id="exportPdfBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ PASSWORD MODAL ============ -->
+  <div id="passwordModal"
+    style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+    <div
+      style="background:var(--surface);border-radius:20px;padding:28px 24px;width:88%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;animation:slideUp 0.3s ease;">
+      <div
+        style="width:60px;height:60px;background:linear-gradient(135deg,#4F46E5,#7C3AED);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+          stroke-linecap="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0110 0v4" />
+        </svg>
+      </div>
+      <div style="font-weight:800;font-size:1.1rem;color:var(--text);margin-bottom:4px;">Admin Access</div>
+      <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:20px;">Enter admin password to access
+        Settings</div>
+      <div style="position:relative;margin-bottom:8px;">
+        <input type="password" id="adminPasswordInput" placeholder="Enter password"
+          style="width:100%;padding:14px 44px 14px 16px;border:2px solid var(--border);border-radius:12px;font-size:0.9rem;background:var(--bg);color:var(--text);box-sizing:border-box;outline:none;transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border)'">
+        <button id="togglePasswordBtn" type="button"
+          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);"
+          onclick="const inp=document.getElementById('adminPasswordInput');const isPass=inp.type==='password';inp.type=isPass?'text':'password';this.innerHTML=isPass?'🙈':'👁️';">
+          👁️
+        </button>
+      </div>
+      <div id="passwordError"
+        style="font-size:0.72rem;color:#EF4444;margin-bottom:12px;min-height:18px;font-weight:600;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="cancelPasswordBtn"
+          style="flex:1;padding:13px;background:var(--bg);color:var(--text-secondary);border:1.5px solid var(--border);border-radius:12px;font-weight:700;font-size:0.85rem;cursor:pointer;">Cancel</button>
+        <button id="unlockSettingsBtn"
+          style="flex:1;padding:13px;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:white;border:none;border-radius:12px;font-weight:700;font-size:0.85rem;cursor:pointer;">🔓
+          Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS OVERLAY ============ -->
+  <div class="merge-overlay" id="settingsOverlay">
+    <div class="merge-header">
+      <button class="merge-header__back" id="settingsBackBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+      </button>
+      <div class="merge-header__title">Settings</div>
+    </div>
+    <div class="merge-body" id="settingsBody" style="padding:16px;">
+
+      <!-- Google Sheet Config -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:12px;color:var(--text);">📊 Google Sheet Config</div>
+        <label
+          style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Sheet
+          ID</label>
+        <input type="text" id="settingSheetId"
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.8rem;margin-bottom:10px;background:var(--bg);color:var(--text);box-sizing:border-box;">
+        <label
+          style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Sheet
+          GID (Tab ID)</label>
+        <input type="text" id="settingSheetGid"
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.8rem;margin-bottom:10px;background:var(--bg);color:var(--text);box-sizing:border-box;">
+        <label
+          style="display:block;font-size:0.75rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Apps
+          Script API URL (optional)</label>
+        <input type="text" id="settingApiUrl" placeholder="https://script.google.com/..."
+          style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.8rem;margin-bottom:12px;background:var(--bg);color:var(--text);box-sizing:border-box;">
+        <button id="saveSettingsBtn"
+          style="width:100%;padding:12px;background:var(--gradient-primary);color:white;border:none;border-radius:12px;font-weight:700;font-size:0.85rem;cursor:pointer;">Save
+          Settings</button>
+      </div>
+
+      <!-- Data Management -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:12px;color:var(--text);">🗃️ Data Management</div>
+        <button id="clearTodayBtn"
+          style="width:100%;padding:12px;background:#FEF3C7;color:#92400E;border:none;border-radius:12px;font-weight:600;font-size:0.8rem;cursor:pointer;margin-bottom:8px;">Clear
+          Today's Attendance</button>
+        <button id="clearAllBtn"
+          style="width:100%;padding:12px;background:#FEE2E2;color:#991B1B;border:none;border-radius:12px;font-weight:600;font-size:0.8rem;cursor:pointer;">Clear
+          All Local Data</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ ABOUT OVERLAY ============ -->
+  <div class="merge-overlay" id="aboutOverlay">
+    <div class="merge-header">
+      <button class="merge-header__back" id="aboutBackBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+      </button>
+      <div class="merge-header__title">About & User Manual</div>
+    </div>
+    <div class="merge-body" style="padding:16px;">
+
+      <!-- App Info -->
+      <div
+        style="background:linear-gradient(135deg,#4F46E5,#7C3AED);border-radius:16px;padding:24px;margin-bottom:16px;color:white;text-align:center;box-shadow:0 4px 15px rgba(79,70,229,0.3);">
+        <div style="font-size:2.5rem;margin-bottom:8px;">🧘</div>
+        <div style="font-weight:800;font-size:1.2rem;">Yoga Attendance App</div>
+        <div style="font-size:0.75rem;opacity:0.8;margin-top:4px;">Version 2.0 — Professional Architecture</div>
+        <div style="font-size:0.7rem;opacity:0.6;margin-top:8px;">Built for Hostel Yoga Attendance Management</div>
+      </div>
+
+      <!-- Quick Start -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">🚀 Quick Start</div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          1. Students are loaded from Google Sheet automatically<br>
+          2. Select <strong>Date</strong> and <strong>Batch</strong> from the controls<br>
+          3. By default, all students are marked as <strong>Leave</strong><br>
+          4. Tap student cards to change their status<br>
+          5. Take a photo proof and <strong>Save</strong>
+        </div>
+      </div>
+
+      <!-- Tap Gestures -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">👆 Tap Gestures</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div
+            style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--present-bg);border-radius:10px;">
+            <div style="font-size:1.2rem;">👆</div>
+            <div>
+              <div style="font-weight:700;font-size:0.8rem;color:var(--present);">Single Tap</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary);">Leave → Present → Leave (toggles)</div>
+            </div>
+          </div>
+          <div
+            style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--absent-bg);border-radius:10px;">
+            <div style="font-size:1.2rem;">👆👆</div>
+            <div>
+              <div style="font-weight:700;font-size:0.8rem;color:var(--absent);">Double Tap (within 250ms)</div>
+              <div style="font-size:0.72rem;color:var(--text-secondary);">Absent ↔ Leave (quick toggle)</div>
+            </div>
+          </div>
+        </div>
+        <div
+          style="margin-top:10px;padding:10px;background:#FEF3C7;border-radius:10px;font-size:0.72rem;color:#92400E;">
+          <strong>💡 Status Flow:</strong> Leave → Present (single tap) · Absent ↔ Leave (double tap) · Present → Leave
+          (single tap)
+        </div>
+      </div>
+
+      <!-- Batch System -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">📋 Batch System</div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          <strong>Batch 01</strong> — 5:30 AM (Morning yoga)<br>
+          <strong>Batch 02</strong> — 6:00 AM (Morning yoga)<br><br>
+          <strong>Smart Cross-Batch:</strong> Students marked <strong>Present</strong> in Batch 1 are automatically
+          hidden in Batch 2 (they already attended).<br><br>
+          <strong>Final Status Logic:</strong><br>
+          • If Present in either batch → <strong style="color:var(--present);">Present</strong><br>
+          • If Absent in either batch → <strong style="color:var(--absent);">Absent</strong><br>
+          • Otherwise → <strong style="color:var(--leave);">Leave</strong>
+        </div>
+      </div>
+
+      <!-- Save & Lock -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">💾 Save & Lock</div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          1. Click <strong>Save Attendance</strong> button<br>
+          2. <strong>Capture or upload a photo</strong> (compulsory proof)<br>
+          3. Review the summary → Click <strong>Confirm & Save</strong><br>
+          4. Data is saved to <strong>Google Sheet + localStorage</strong><br>
+          5. Batch gets <strong>🔒 Locked</strong> — no more changes allowed<br><br>
+          <strong>Photo backup:</strong> Proof photos are saved to Google Drive in "Yoga Attendance Photos" folder.
+        </div>
+      </div>
+
+      <!-- Bottom Navigation -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">📱 Bottom Navigation</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:0.78rem;color:var(--text-secondary);">
+          <div><strong>🏠 Home</strong> — Main attendance view</div>
+          <div><strong>📊 Report</strong> — Merge both batches, export Excel/PDF</div>
+          <div><strong>📋 Section</strong> — Overview of both batches with stats</div>
+          <div><strong>🔄 Sync</strong> — Refresh student data from Google Sheet</div>
+        </div>
+      </div>
+
+      <!-- Merge & Export -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">📤 Merge & Export</div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          The <strong>Report</strong> view merges Batch 1 + Batch 2 attendance into a combined table with a final status
+          column.<br><br>
+          <strong>Export options:</strong><br>
+          • <strong>📗 Excel (.xlsx)</strong> — Full spreadsheet with all columns<br>
+          • <strong>📄 PDF</strong> — Formatted A4 landscape report<br><br>
+          Files are downloaded directly to your device.
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">⚙️ Settings (Admin Only)
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          Settings are <strong>🔒 password-protected</strong>. Only administrators can access.<br><br>
+          <strong>Available settings:</strong><br>
+          • Google Sheet ID (student data source)<br>
+          • Sheet GID (tab ID)<br>
+          • Apps Script API URL (for cloud save)<br>
+          • Clear today's attendance data<br>
+          • Clear all local data
+        </div>
+      </div>
+
+      <!-- Data Storage -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">☁️ Data Storage</div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          <strong>Dual storage:</strong> Data is saved both locally and to Google Sheets.<br><br>
+          • <strong>Local (localStorage)</strong> — Works offline, instant access<br>
+          • <strong>Cloud (Google Sheet)</strong> — Permanent backup, accessible from anywhere<br><br>
+          If internet is unavailable during save, data is stored locally and can be synced later.
+        </div>
+      </div>
+
+      <!-- Technical Info -->
+      <div
+        style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:10px;color:var(--text);">🏗️ Technical Architecture
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.8;">
+          • <strong>15 Modules</strong> — EventBus, Store, Renderer, Handlers, etc.<br>
+          • <strong>Map/Set DSA</strong> — O(1) lookups for students & locks<br>
+          • <strong>Computed Caching</strong> — Single-pass pile calculation<br>
+          • <strong>requestAnimationFrame</strong> — Batched DOM updates<br>
+          • <strong>DocumentFragment</strong> — Zero-reflow rendering<br>
+          • <strong>Event Delegation</strong> — Efficient click handling
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="text-align:center;padding:16px 0;font-size:0.7rem;color:var(--text-muted);">
+        Made with ❤️ for Hostel Yoga Management<br>
+        © 2026 Yoga Attendance App
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SECTION OVERLAY ============ -->
+  <div class="merge-overlay" id="sectionOverlay">
+    <div class="merge-header">
+      <button class="merge-header__back" id="sectionBackBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+      </button>
+      <div class="merge-header__title">Batch Overview</div>
+    </div>
+    <div class="merge-body" id="sectionBody" style="padding:16px;"></div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
